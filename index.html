@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Floor Plan AR</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; }
+
+    #loading {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      z-index: 9999;
+    }
+    #loading h2 { margin-bottom: 16px; font-size: 18px; }
+    #loading-log {
+      font-size: 12px;
+      color: #aaa;
+      max-width: 300px;
+      text-align: center;
+      line-height: 1.8;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid #333;
+      border-top: 4px solid #00ff88;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #status-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      font-family: sans-serif;
+      font-size: 13px;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 999;
+    }
+    #marker-status { display: flex; gap: 8px; align-items: center; }
+    .dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #555;
+      transition: background 0.3s;
+    }
+    .dot.found { background: #00ff88; }
+
+    #hint {
+      position: fixed;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65);
+      color: white;
+      font-family: sans-serif;
+      font-size: 14px;
+      padding: 10px 20px;
+      border-radius: 20px;
+      z-index: 999;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading">
+  <div class="spinner"></div>
+  <h2>กำลังโหลด AR...</h2>
+  <div id="loading-log">เริ่มต้น...</div>
+</div>
+
+<!-- Status UI (hidden until loaded) -->
+<div id="status-bar" style="display:none">
+  <span>📐 Floor Plan AR | 1:50</span>
+  <div id="marker-status">
+    <div class="dot" id="dot0"></div>
+    <div class="dot" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+    <div class="dot" id="dot3"></div>
+  </div>
+</div>
+<div id="hint" style="display:none">ชี้กล้องไปที่ Marker</div>
+
+<!-- 
+  ใช้ AR.js version ที่เสถียรกว่า
+  และ A-Frame 1.3.0 ที่ compatible ดีกว่า 
+-->
+<script>
+  function log(msg) {
+    document.getElementById('loading-log').textContent = msg;
+    console.log(msg);
+  }
+  log('โหลด A-Frame...');
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.3.0/aframe.min.js"
+  onload="log('A-Frame โหลดสำเร็จ ✓')"
+  onerror="log('❌ A-Frame โหลดไม่ได้ — ตรวจสอบ internet')">
+</script>
+
+<script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"
+  onload="log('AR.js โหลดสำเร็จ ✓ — รอ scene...')"
+  onerror="log('❌ AR.js โหลดไม่ได้ — ตรวจสอบ internet')">
+</script>
+
+<a-scene
+  embedded
+  arjs="sourceType: webcam;
+        debugUIEnabled: false;
+        detectionMode: mono_and_matrix;
+        matrixCodeType: 3x3;
+        patternRatio: 0.75;
+        maxDetectionRate: 60;"
+  renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
+  vr-mode-ui="enabled: false"
+  loading-screen="enabled: false"
+>
+
+  <!-- MARKER 0 — ซ้ายบน → origin ของ model -->
+  <a-marker
+    type="pattern"
+    url="id0.patt"
+    id="marker0"
+    size="0.02"
+    smooth="true"
+    smoothCount="10"
+    smoothTolerance="0.01"
+    smoothThreshold="5"
+  >
+    <a-entity
+      id="building"
+      gltf-model="url(Test.glb)"
+      scale="0.02 0.02 0.02"
+      position="0 0 0"
+      rotation="-90 0 0"
+    ></a-entity>
+    <a-sphere color="#ff0000" radius="0.008" position="0 0.01 0"></a-sphere>
+  </a-marker>
+
+  <!-- MARKER 1 — ขวาบน -->
+  <a-marker type="pattern" url="id1.patt" id="marker1" size="0.02"
+    smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5">
+    <a-sphere color="#00ff00" radius="0.008" position="0 0.01 0"></a-sphere>
+  </a-marker>
+
+  <!-- MARKER 2 — ซ้ายล่าง -->
+  <a-marker type="pattern" url="id2.patt" id="marker2" size="0.02"
+    smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5">
+    <a-sphere color="#0000ff" radius="0.008" position="0 0.01 0"></a-sphere>
+  </a-marker>
+
+  <!-- MARKER 3 — ขวาล่าง -->
+  <a-marker type="pattern" url="id3.patt" id="marker3" size="0.02"
+    smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5">
+    <a-sphere color="#ffff00" radius="0.008" position="0 0.01 0"></a-sphere>
+  </a-marker>
+
+  <a-camera-static></a-camera-static>
+</a-scene>
+
+<script>
+  const scene = document.querySelector('a-scene');
+  const loadingEl = document.getElementById('loading');
+  const statusBar = document.getElementById('status-bar');
+  const hintEl = document.getElementById('hint');
+  const building = document.getElementById('building');
+  const dots = [0,1,2,3].map(i => document.getElementById('dot'+i));
+
+  // Scene loaded → ซ่อน loading screen
+  scene.addEventListener('loaded', () => {
+    log('Scene พร้อมแล้ว ✓');
+    setTimeout(() => {
+      loadingEl.style.display = 'none';
+      statusBar.style.display = 'flex';
+      hintEl.style.display = 'block';
+    }, 500);
+  });
+
+  // Timeout fallback — ถ้า 15 วินาทีแล้วยังโหลดอยู่
+  setTimeout(() => {
+    if (loadingEl.style.display !== 'none') {
+      log('⚠️ โหลดนานผิดปกติ — ลองรีเฟรช หรือดู Console (F12)');
+    }
+  }, 15000);
+
+  // Marker events
+  const markerFound = [false, false, false, false];
+
+  [0,1,2,3].forEach(i => {
+    const el = document.getElementById('marker'+i);
+
+    el.addEventListener('markerFound', () => {
+      markerFound[i] = true;
+      dots[i].classList.add('found');
+      const count = markerFound.filter(Boolean).length;
+      hintEl.textContent = count === 4 ? '✅ พบครบ 4 markers!' : `พบ ${count}/4 markers`;
+      if (i === 0) building.setAttribute('visible', true);
+    });
+
+    el.addEventListener('markerLost', () => {
+      markerFound[i] = false;
+      dots[i].classList.remove('found');
+      // marker 0 หลุด → model ยังอยู่ (last known position)
+    });
+  });
+
+  // GLB load check
+  const buildingEl = document.getElementById('building');
+  buildingEl.addEventListener('model-loaded', () => {
+    console.log('✅ Test.glb โหลดสำเร็จ');
+  });
+  buildingEl.addEventListener('model-error', (e) => {
+    console.error('❌ Test.glb โหลดไม่ได้:', e.detail);
+    hintEl.textContent = '❌ โหลด Test.glb ไม่ได้ — ตรวจ path';
+    hintEl.style.background = 'rgba(200,0,0,0.7)';
+    hintEl.style.display = 'block';
+  });
+</script>
+
+</body>
+</html>
